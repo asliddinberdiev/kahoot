@@ -1,0 +1,28 @@
+services:
+  mongodb:
+    image: mongo:8.2
+    container_name: mongodb_stable
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: securepassword123
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app_network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  app_network:
+    driver: bridge
