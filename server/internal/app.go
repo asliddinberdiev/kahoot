@@ -1,8 +1,9 @@
 package internal
 
 import (
-	"context"
 	"log"
+
+	"context"
 	"time"
 
 	"github.com/asliddinberdiev/kahoot/internal/collection"
@@ -31,16 +32,19 @@ func (a *App) Init() {
 	log.Fatal(a.httpServer.Listen(":3000"))
 }
 
-func (a *App) setupDb() {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+func (a *App) setupHttp() {
+	app := fiber.New()
+	app.Use(cors.New())
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://admin:securepassword123@localhost:27017"))
-	if err != nil {
-		panic(err)
-	}
+	quizController := controller.Quiz(a.quizService)
+	app.Get("/api/quizzes", quizController.GetQuizzes)
+	app.Get("/api/quizzes/:quizId", quizController.GetQuizById)
+	app.Put("/api/quizzes/:quizId", quizController.UpdateQuizById)
 
-	a.database = client.Database("kahoot")
+	wsController := controller.Ws(a.netService)
+	app.Get("/ws", websocket.New(wsController.Ws))
+
+	a.httpServer = app
 }
 
 func (a *App) setupServices() {
@@ -48,15 +52,14 @@ func (a *App) setupServices() {
 	a.netService = service.Net(a.quizService)
 }
 
-func (a *App) setupHttp() {
-	app := fiber.New()
-	app.Use(cors.New())
+func (a *App) setupDb() {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	client, err := mongo.Connect(ctx,
+		options.Client().ApplyURI("mongodb://username:password@localhost:27017/?authSource=admin"))
+	if err != nil {
+		panic(err)
+	}
 
-	quizController := controller.Quiz(a.quizService)
-	app.Get("/api/quizzes", quizController.GetQuizzes)
-
-	wsController := controller.Ws(a.netService)
-	app.Get("/ws", websocket.New(wsController.Ws))
-
-	a.httpServer = app
+	a.database = client.Database("kahoot")
 }
